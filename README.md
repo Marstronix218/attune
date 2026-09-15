@@ -1,0 +1,46 @@
+# Attune
+
+Attune is a private, chat-first relationship memory and care assistant. Tell it what happened in natural language and it proposes where each piece belongs—memory, calendar, task, reminder, or interaction—while keeping you in control of durable records.
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`. The capture flow works in demo mode without credentials and keeps approved items in browser storage.
+
+## Configure Supabase
+
+1. Create a Supabase project.
+2. Copy `.env.example` to `.env.local` and add the project URL and anon key.
+3. Apply `supabase/migrations/202609150001_initial_attune.sql` through the Supabase CLI or SQL editor.
+4. Configure an auth provider in Supabase.
+
+The migration enables RLS on every private table and scopes records through the authenticated relationship owner. The service-role key is reserved for server-only jobs and must never use the `NEXT_PUBLIC_` prefix.
+
+## Configure AI
+
+Set `OPENAI_API_KEY` only on the server. When it is present, the capture endpoint uses the OpenAI Responses API with strict Zod-validated structured output and `store: false`. Without a key, the same endpoint uses a deterministic local classifier so the vertical slice remains fully testable.
+
+## Telegram import
+
+Export a chat as JSON from Telegram Desktop and open `/imports/telegram`. The MVP parser normalizes messages, rich text, replies, media metadata, timestamps, and participants. The upload preview is capped at 25 MB and is not persisted.
+
+## Validation
+
+```bash
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
+
+## Privacy contract
+
+- AI-created durable records require review.
+- Facts and inferences stay visibly distinct.
+- Missing event times are never invented.
+- Only approved memories should enter trusted retrieval.
+- Every future persisted AI item must retain its source and rationale.
