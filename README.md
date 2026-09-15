@@ -28,6 +28,15 @@ Set `OPENAI_API_KEY` only on the server. When it is present, the capture endpoin
 
 Export a chat as JSON from Telegram Desktop and open `/imports/telegram`. The MVP parser normalizes messages, rich text, replies, media metadata, timestamps, and participants. The upload preview is capped at 25 MB and is not persisted.
 
+If Telegram Desktop does not show an export option, Attune includes a local, read-only Telethon connector based on the account-client approach used by `texting-girlfriend-helper-telegram`:
+
+```bash
+python3 -m pip install -r scripts/telegram-requirements.txt
+npm run telegram:export -- @their_username --limit 5000
+```
+
+Create an API ID and API hash at `my.telegram.org` first. The connector prompts for credentials and Telegram authentication locally, uses an in-memory session, reads the selected conversation, and creates `telegram-attune-export.json`. It does not send messages or persist the Telegram session.
+
 ## Validation
 
 ```bash

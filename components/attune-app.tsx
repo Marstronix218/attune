@@ -45,6 +45,7 @@ const timezones = [
   "America/Los_Angeles",
   "America/New_York",
   "Europe/London",
+  "Europe/Berlin",
   "Europe/Paris",
   "Asia/Tokyo",
   "Asia/Singapore",

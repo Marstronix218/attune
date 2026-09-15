@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { ArrowLeft, CheckCircle2, ExternalLink, FileJson, LoaderCircle, MonitorDown, UploadCloud } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, FileJson, LoaderCircle, MonitorDown, ShieldCheck, Terminal, UploadCloud } from "lucide-react";
 
 type Conversation = {
   id: string;
@@ -56,7 +56,7 @@ export default function TelegramImportPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6b796f]">Private import</p>
           <h1 className="mt-3 font-serif text-4xl tracking-[-0.03em] sm:text-5xl">Bring in a Telegram conversation</h1>
           <p className="mt-4 leading-7 text-[#667068]">
-            Upload a JSON export from Telegram Desktop. Attune parses it privately, then lets you review every
+            Upload a Telegram Desktop JSON export or create one with Attune’s local connector. Attune parses it privately, then lets you review every
             memory before anything becomes trusted context.
           </p>
         </header>
@@ -79,6 +79,34 @@ export default function TelegramImportPage() {
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#f6f2eb] px-4 py-3 text-xs text-[#687169]">
             <span>Just signed into Telegram Desktop? Telegram may ask you to confirm the export from another device or wait before downloading.</span>
             <a className="inline-flex shrink-0 items-center gap-1 font-semibold text-[#496456] hover:underline" href="https://telegram.org/blog/export-and-more" target="_blank" rel="noreferrer">Telegram’s guide <ExternalLink size={13} /></a>
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-[#d8d1c4] bg-[#fffcf7] p-6 sm:p-8">
+          <div className="flex items-start gap-4">
+            <span className="rounded-2xl bg-[#eee9f4] p-3 text-[#6e6280]"><Terminal size={24} /></span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#75678d]">No export option? Use the local connector</p>
+              <h2 className="mt-2 text-2xl font-semibold">Read the chat through Telegram’s API</h2>
+              <p className="mt-2 text-sm leading-6 text-[#737b75]">This uses the same Telethon approach as your Telegram helper repository. It runs on your computer and creates a JSON file that can be uploaded below.</p>
+            </div>
+          </div>
+          <ol className="mt-7 grid gap-3 sm:grid-cols-3">
+            <ExportStep number="1" title="Get Telegram credentials" detail="Sign in at my.telegram.org, open API development tools, and create an application to receive an API ID and API hash." />
+            <ExportStep number="2" title="Run the connector" detail="In a terminal opened in the Attune project, install Telethon and run the export command shown below." />
+            <ExportStep number="3" title="Upload the result" detail="The connector creates telegram-attune-export.json. Drop that file into the uploader below." />
+          </ol>
+          <div className="mt-5 overflow-x-auto rounded-2xl bg-[#252925] p-4 text-xs leading-6 text-[#eef2ed]">
+            <pre><code>{`python3 -m pip install -r scripts/telegram-requirements.txt
+npm run telegram:export -- @their_username --limit 5000`}</code></pre>
+          </div>
+          <div className="mt-4 flex items-start gap-2 text-xs leading-5 text-[#687169]">
+            <ShieldCheck className="mt-0.5 shrink-0 text-[#496456]" size={16} />
+            <p>Attune never receives your API hash, login code, or 2FA password. The connector keeps the Telegram login session only in memory, and this script does not send messages.</p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-4 text-xs font-semibold">
+            <a className="inline-flex items-center gap-1 text-[#496456] hover:underline" href="https://my.telegram.org" target="_blank" rel="noreferrer">Open my.telegram.org <ExternalLink size={13} /></a>
+            <a className="inline-flex items-center gap-1 text-[#496456] hover:underline" href="https://docs.telethon.dev/en/stable/basic/signing-in.html" target="_blank" rel="noreferrer">Telethon sign-in guide <ExternalLink size={13} /></a>
           </div>
         </section>
 

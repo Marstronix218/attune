@@ -6,3 +6,7 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 supabase/.temp/
+*.session
+*.session-journal
+telegram-attune-export*.json
+.venv/
