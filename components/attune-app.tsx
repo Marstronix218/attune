@@ -36,7 +36,7 @@ const ITEMS_KEY = "attune:saved-items:v1";
 
 const defaultSettings: RelationshipSettings = {
   userName: "You",
-  partnerName: "Maya",
+  partnerName: "Jamie",
   userTimezone: "America/Los_Angeles",
   partnerTimezone: "Europe/London",
 };
