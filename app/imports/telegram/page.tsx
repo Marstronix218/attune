@@ -127,7 +127,7 @@ npm run telegram:export -- @their_username --limit 5000`}</code></pre>
             <input
               ref={inputRef}
               type="file"
-              accept="application/json,.json"
+              accept="application/json,text/markdown,.json,.md,.markdown"
               hidden
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -144,7 +144,7 @@ npm run telegram:export -- @their_username --limit 5000`}</code></pre>
               <>
                 <UploadCloud className="mx-auto text-[#496456]" size={38} strokeWidth={1.5} />
                 <h2 className="mt-5 text-xl font-semibold">Drop your Telegram JSON here</h2>
-                <p className="mt-2 text-sm text-[#737b75]">JSON export · up to 25 MB for this preview</p>
+                <p className="mt-2 text-sm text-[#737b75]">JSON or Markdown · up to 25 MB for this preview</p>
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
@@ -223,6 +223,11 @@ function ExportStep({ number, title, detail }: { number: string; title: string; 
 
 function formatRange(range: Conversation["dateRange"]) {
   if (!range.first || !range.last) return "No dated messages";
+  const firstDate = new Date(range.first);
+  const lastDate = new Date(range.last);
+  if (Number.isNaN(firstDate.getTime()) || Number.isNaN(lastDate.getTime())) {
+    return `${range.first} – ${range.last} · date not included`;
+  }
   const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
-  return `${formatter.format(new Date(range.first))} – ${formatter.format(new Date(range.last))}`;
+  return `${formatter.format(firstDate)} – ${formatter.format(lastDate)}`;
 }

@@ -118,9 +118,10 @@ function AuthScreen({ supabase }: { supabase: BrowserClient }) {
     event.preventDefault();
     setBusy(true);
     setMessage("");
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://attune-sable-one.vercel.app";
     const result = mode === "signin"
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password });
+      : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${siteUrl.replace(/\/$/, "")}/` } });
     if (result.error) setMessage(result.error.message);
     else if (mode === "signup" && !result.data.session) setMessage("Check your email to confirm your account, then sign in.");
     setBusy(false);

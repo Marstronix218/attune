@@ -18,6 +18,8 @@ Open `http://localhost:3000`. The capture flow works in demo mode without creden
 3. Apply `supabase/migrations/202609150001_initial_attune.sql` through the Supabase CLI or SQL editor.
 4. Configure an auth provider in Supabase.
 
+Set `NEXT_PUBLIC_SITE_URL=https://attune-sable-one.vercel.app` in Vercel. Supabase Auth should use the same URL as its Site URL and include it in Redirect URLs so confirmation links return to the deployed app.
+
 The migration enables RLS on every private table and scopes records through the authenticated relationship owner. The service-role key is reserved for server-only jobs and must never use the `NEXT_PUBLIC_` prefix.
 
 ## Configure AI
@@ -26,7 +28,11 @@ Set `OPENAI_API_KEY` only on the server. When it is present, the capture endpoin
 
 ## Telegram import
 
-Export a chat as JSON from Telegram Desktop and open `/imports/telegram`. The MVP parser normalizes messages, rich text, replies, media metadata, timestamps, and participants. The upload preview is capped at 25 MB and is not persisted.
+Export a chat as JSON from Telegram Desktop and open `/imports/telegram`. Attune also accepts timestamped Markdown (`.md` or `.markdown`) using common `Name, [date]` and `[date] **Name**: message` layouts. The parser normalizes messages, multiline text, replies, media metadata, timestamps, and participants. The upload preview is capped at 25 MB and is not persisted.
+
+Time-only Markdown headers are also supported, including `**Jamie** (09:43, id 107613): message`. Attune preserves the Telegram message ID and marks the calendar date as unavailable instead of manufacturing one.
+
+For sectioned exports, Attune reads `# Conversation with Jamie` and `## 2026-07-27 (Monday)` headings, then combines that section date with each message time. Because the export does not contain an IANA timezone, the wall-clock time is preserved and marked as timezone-unspecified.
 
 If Telegram Desktop does not show an export option, Attune includes a local, read-only Telethon connector based on the account-client approach used by `texting-girlfriend-helper-telegram`:
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseTelegramConversations } from "@/lib/importers/telegram/telegramParser";
+import { parseTelegramMarkdown } from "@/lib/importers/telegram/telegramMarkdownParser";
 
 export const runtime = "nodejs";
 
@@ -10,15 +11,19 @@ export async function POST(request: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Choose a Telegram JSON export." }, { status: 400 });
     }
-    if (!file.name.toLowerCase().endsWith(".json")) {
-      return NextResponse.json({ error: "Attune currently supports Telegram JSON exports." }, { status: 415 });
+    const lowerName = file.name.toLowerCase();
+    if (!lowerName.endsWith(".json") && !lowerName.endsWith(".md") && !lowerName.endsWith(".markdown")) {
+      return NextResponse.json({ error: "Attune supports Telegram JSON and Markdown files." }, { status: 415 });
     }
     if (file.size > 25 * 1024 * 1024) {
       return NextResponse.json({ error: "For this MVP, imports are limited to 25 MB." }, { status: 413 });
     }
 
-    const json: unknown = JSON.parse(await file.text());
-    const conversations = parseTelegramConversations(json).map((conversation) => ({
+    const fileText = await file.text();
+    const parsedConversations = lowerName.endsWith(".json")
+      ? parseTelegramConversations(JSON.parse(fileText) as unknown)
+      : [parseTelegramMarkdown(fileText)];
+    const conversations = parsedConversations.map((conversation) => ({
       id: conversation.conversationId,
       conversationName: conversation.conversationName,
       messageCount: conversation.messages.length,
