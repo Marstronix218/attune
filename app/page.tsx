@@ -1,5 +1,5 @@
-import { AttuneApp } from "@/components/attune-app";
+import { AuthGate } from "@/components/auth-gate";
 
 export default function Home() {
-  return <AttuneApp />;
+  return <AuthGate />;
 }

@@ -12,6 +12,7 @@ import {
   Heart,
   Inbox,
   LoaderCircle,
+  LogOut,
   MessageCircleHeart,
   Pencil,
   RotateCcw,
@@ -66,7 +67,7 @@ type ChatEntry =
   | { id: string; role: "assistant"; result: AnalysisResult };
 
 type UndoAction =
-  | { kind: "approve"; candidate: CaptureCandidate }
+  | { kind: "approve"; candidate: CaptureCandidate; savedId: string }
   | { kind: "reject"; candidate: CaptureCandidate };
 
 function uid() {
@@ -82,8 +83,18 @@ function safeParse<T>(value: string | null, fallback: T): T {
   }
 }
 
-export function AttuneApp() {
-  const [settings, setSettings] = useState(defaultSettings);
+type AttuneAppProps = {
+  initialSettings?: RelationshipSettings;
+  relationshipId?: string;
+  storageScope?: string;
+  onSettingsChange?: (settings: RelationshipSettings) => void;
+  onSignOut?: () => void;
+};
+
+export function AttuneApp({ initialSettings, relationshipId, storageScope = "demo", onSettingsChange, onSignOut }: AttuneAppProps = {}) {
+  const settingsKey = `${SETTINGS_KEY}:${storageScope}`;
+  const itemsKey = `${ITEMS_KEY}:${storageScope}`;
+  const [settings, setSettings] = useState(initialSettings ?? defaultSettings);
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [draft, setDraft] = useState("");
@@ -97,8 +108,8 @@ export function AttuneApp() {
 
   useEffect(() => {
     const hydrateFrame = window.requestAnimationFrame(() => {
-      setSettings(safeParse(localStorage.getItem(SETTINGS_KEY), defaultSettings));
-      setSavedItems(safeParse(localStorage.getItem(ITEMS_KEY), []));
+      if (!initialSettings) setSettings(safeParse(localStorage.getItem(settingsKey), defaultSettings));
+      setSavedItems(safeParse(localStorage.getItem(itemsKey), []));
       setNow(new Date());
       setHydrated(true);
     });
@@ -107,17 +118,28 @@ export function AttuneApp() {
       window.cancelAnimationFrame(hydrateFrame);
       window.clearInterval(timer);
     };
-  }, []);
+  }, [initialSettings, itemsKey, settingsKey]);
+
+  useEffect(() => {
+    if (!relationshipId) return;
+    void fetch(`/api/records?relationshipId=${encodeURIComponent(relationshipId)}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load your saved relationship context.");
+        return response.json() as Promise<{ items: SavedItem[] }>;
+      })
+      .then(({ items }) => setSavedItems(items))
+      .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Could not load saved details."));
+  }, [relationshipId]);
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  }, [settings, hydrated]);
+    localStorage.setItem(settingsKey, JSON.stringify(settings));
+  }, [settings, hydrated, settingsKey]);
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(ITEMS_KEY, JSON.stringify(savedItems));
-  }, [savedItems, hydrated]);
+    localStorage.setItem(itemsKey, JSON.stringify(savedItems));
+  }, [savedItems, hydrated, itemsKey]);
 
   useEffect(() => {
     scrollAnchor.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -168,21 +190,44 @@ export function AttuneApp() {
     }));
   };
 
-  const setCandidateStatus = (entryId: string, candidate: CaptureCandidate, status: "approved" | "rejected") => {
-    updateCandidate(entryId, { ...candidate, status });
+  const setCandidateStatus = async (entryId: string, candidate: CaptureCandidate, status: "approved" | "rejected") => {
     if (status === "approved") {
-      const saved: SavedItem = { ...candidate, status, savedAt: new Date().toISOString() };
+      let saved: SavedItem = { ...candidate, status, savedAt: new Date().toISOString() };
+      if (relationshipId) {
+        try {
+          const response = await fetch("/api/records", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ relationshipId, candidate }),
+          });
+          const body = await response.json() as { item?: SavedItem; error?: string };
+          if (!response.ok || !body.item) throw new Error(body.error ?? "Could not save this detail.");
+          saved = body.item;
+        } catch (saveError) {
+          setError(saveError instanceof Error ? saveError.message : "Could not save this detail.");
+          return;
+        }
+      }
+      updateCandidate(entryId, { ...candidate, status });
       setSavedItems((current) => [saved, ...current.filter((item) => item.id !== candidate.id)]);
-      setUndoAction({ kind: "approve", candidate });
+      setUndoAction({ kind: "approve", candidate, savedId: saved.id });
     } else {
+      updateCandidate(entryId, { ...candidate, status });
       setUndoAction({ kind: "reject", candidate });
     }
   };
 
-  const undo = () => {
+  const undo = async () => {
     if (!undoAction) return;
     if (undoAction.kind === "approve") {
-      setSavedItems((current) => current.filter((item) => item.id !== undoAction.candidate.id));
+      setSavedItems((current) => current.filter((item) => item.id !== undoAction.savedId));
+      if (relationshipId) {
+        await fetch("/api/records", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ relationshipId, destination: undoAction.candidate.destination, id: undoAction.savedId }),
+        });
+      }
     }
     setEntries((current) => current.map((entry) => entry.role === "assistant" ? {
       ...entry,
@@ -205,7 +250,7 @@ export function AttuneApp() {
 
   return (
     <div className="app-shell">
-      <SideNav activeView={activeView} setActiveView={setActiveView} savedItems={savedItems} settings={settings} />
+      <SideNav activeView={activeView} setActiveView={setActiveView} savedItems={savedItems} settings={settings} onSignOut={onSignOut} />
 
       <main className="main-panel">
         {activeView === "capture" ? (
@@ -222,18 +267,22 @@ export function AttuneApp() {
             scrollAnchor={scrollAnchor}
           />
         ) : (
-          <LibraryView view={activeView} items={filteredItems} onReturn={() => setActiveView("capture")} onDelete={(id) => setSavedItems((current) => current.filter((item) => item.id !== id))} />
+          <LibraryView view={activeView} items={filteredItems} onReturn={() => setActiveView("capture")} onDelete={(id) => {
+            const item = savedItems.find((saved) => saved.id === id);
+            setSavedItems((current) => current.filter((saved) => saved.id !== id));
+            if (relationshipId && item) void fetch("/api/records", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ relationshipId, destination: item.destination, id }) });
+          }} />
         )}
       </main>
 
-      <ContextRail settings={settings} setSettings={setSettings} now={now} savedItems={savedItems} />
+      <ContextRail settings={settings} setSettings={(next) => { setSettings(next); onSettingsChange?.(next); }} now={now} savedItems={savedItems} />
 
       <MobileNav activeView={activeView} setActiveView={setActiveView} />
 
       {undoAction && (
         <div className="undo-toast" role="status">
           <span>{undoAction.kind === "approve" ? "Saved to Attune" : "Suggestion dismissed"}</span>
-          <button onClick={undo}><RotateCcw size={15} /> Undo</button>
+          <button onClick={() => void undo()}><RotateCcw size={15} /> Undo</button>
         </div>
       )}
     </div>
@@ -249,11 +298,12 @@ function Brand() {
   );
 }
 
-function SideNav({ activeView, setActiveView, savedItems, settings }: {
+function SideNav({ activeView, setActiveView, savedItems, settings, onSignOut }: {
   activeView: View;
   setActiveView: (view: View) => void;
   savedItems: SavedItem[];
   settings: RelationshipSettings;
+  onSignOut?: () => void;
 }) {
   const links: { id: View; label: string; icon: typeof Heart; count?: number }[] = [
     { id: "capture", label: "Talk to Attune", icon: Sparkles },
@@ -283,7 +333,8 @@ function SideNav({ activeView, setActiveView, savedItems, settings }: {
         <div><strong>{settings.partnerName}</strong><span>Relationship space</span></div>
         <ChevronRight size={16} />
       </div>
-      <p className="privacy-note">Private to you · stored on this device</p>
+      <p className="privacy-note">Private to your account</p>
+      {onSignOut && <button className="sign-out-button" onClick={onSignOut}><LogOut size={14} /> Sign out</button>}
     </aside>
   );
 }
